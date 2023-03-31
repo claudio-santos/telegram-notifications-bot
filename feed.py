@@ -5,6 +5,7 @@ from pprint import pprint
 
 import feedparser
 import requests
+from bs4 import BeautifulSoup
 
 import config
 
@@ -30,7 +31,7 @@ def get_new_entries(feed, source):
         cur = con.cursor()
         if not cur.execute(
                 'SELECT 1 FROM entries WHERE url=? AND chat_id=? AND message_thread_id=? AND id=?;',
-                (source['url'], source['chat_id'], source['message_thread_id'], entry['id'])
+                (source['url'], source['chat_id'], source['message_thread_id'], entry['link'])
         ).fetchone():
             new_entries.append(entry)
         cur.close()
@@ -57,29 +58,55 @@ def post_entry(entry, source):
     entry: an entry from the feed \n
     source: source from the config file \n
     """
-    line1 = '*' + entry['title'] + '*\n'
-    line2 = '_' + entry['author'] + '_'
-    line3 = ''
+    title = ''
+    try:
+        title = '<b>' + strip_html(entry['title']) + '</b>\n'
+    except:
+        pass
+
+    author = ''
+    try:
+        author = '<i>' + strip_html(entry['author']) + '</i>'
+    except:
+        pass
+
+    media = ''
     if source['media']:
         try:
-            line3 = ' [.](' + entry['media_content'][0]['url'] + ')'
+            media = '<a href="' + strip_html(entry['media_content'][0]['url']) + '">.</a>'
         except:
             pass
         try:
-            line3 = ' [.](' + entry['media_thumbnail'][0]['url'] + ')'
+            media = '<a href="' + strip_html(entry['media_content'][0]['url']) + '">.</a>'
         except:
             pass
-    line4 = '\n\n' + entry['link']
-    text = line1 + line2 + line3 + line4
+
+    link = ''
+    try:
+        link = '\n\n' + strip_html(entry['link'])
+    except:
+        pass
+
+    text = title + author + media + link
+
     data = {
         'chat_id': source['chat_id'],
         'message_thread_id': source['message_thread_id'],
         'text': text,
-        'parse_mode': 'Markdown'
+        'parse_mode': 'HTML'
     }
+
     time.sleep(1)
     r = requests.post(source['api'], data=data)
+    if not r.ok:
+        print(text)
+        print(r.text)
     return r.ok
+
+
+def strip_html(text):
+    soup = BeautifulSoup(text, 'html.parser')
+    return soup.get_text()
 
 
 def feed_entries_insert(source, entries):
@@ -91,7 +118,7 @@ def feed_entries_insert(source, entries):
     values = []
     timestamp = datetime.now().timestamp()
     for entry in entries:
-        values.append((source['url'], source['chat_id'], source['message_thread_id'], entry['id'], timestamp))
+        values.append((source['url'], source['chat_id'], source['message_thread_id'], entry['link'], timestamp))
     con = sqlite3.connect(config.db)
     cur = con.cursor()
     cur.executemany(
@@ -103,13 +130,13 @@ def feed_entries_insert(source, entries):
     con.close()
 
 
-def test():
-    for x in config.sources:
-        print('---- ')
-        print('---- ' + x['url'])
-        print('---- ')
-        pprint(get_new_entries(get_feed(x['url']), x))
+def test(i):
+    x = config.sources[i]
+    print('---- ')
+    print('---- ' + x['url'])
+    print('---- ')
+    pprint(get_feed(x['url']))
 
 
 if __name__ == "__main__":
-    test()
+    test(0)

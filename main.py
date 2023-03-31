@@ -14,22 +14,5 @@ def main():
         time.sleep(1)
 
 
-def test_post_entry():
-    source = {
-        'url': 'url',
-        'api': config.test_api,
-        'chat_id': config.test_chat_id,
-        'message_thread_id': config.test_message_thread_id,
-        'media': False
-    }
-    entry = {
-        'title': 'title',
-        'author': 'author',
-        'link': 'link'
-    }
-    feed.post_entry(entry, source)
-
-
 if __name__ == "__main__":
     main()
-    # test_post_entry()
